@@ -1,0 +1,27 @@
+Metrics for class bagel with 250ep_4bs
+AUPRO@30% | AUPRO@10% | AUPRO@5% | AUPRO@1% | P-AUROC | I-AUROC
+  0.980   |   0.940   |   0.882  |   0.463  |   0.997 |   0.985
+Metrics for class cable_gland with 250ep_4bs
+AUPRO@30% | AUPRO@10% | AUPRO@5% | AUPRO@1% | P-AUROC | I-AUROC
+  0.960   |   0.882   |   0.780  |   0.369  |   0.988 |   0.887
+Metrics for class carrot with 250ep_4bs
+AUPRO@30% | AUPRO@10% | AUPRO@5% | AUPRO@1% | P-AUROC | I-AUROC
+  0.973   |   0.919   |   0.844  |   0.422  |   0.998 |   0.935
+Metrics for class dowel with 250ep_4bs
+AUPRO@30% | AUPRO@10% | AUPRO@5% | AUPRO@1% | P-AUROC | I-AUROC
+  0.960   |   0.882   |   0.785  |   0.374  |   0.996 |   0.985
+Metrics for class foam with 250ep_4bs
+AUPRO@30% | AUPRO@10% | AUPRO@5% | AUPRO@1% | P-AUROC | I-AUROC
+  0.943   |   0.859   |   0.773  |   0.378  |   0.994 |   0.860
+Metrics for class peach with 250ep_4bs
+AUPRO@30% | AUPRO@10% | AUPRO@5% | AUPRO@1% | P-AUROC | I-AUROC
+  0.977   |   0.932   |   0.864  |   0.426  |   0.998 |   0.926
+Metrics for class potato with 250ep_4bs
+AUPRO@30% | AUPRO@10% | AUPRO@5% | AUPRO@1% | P-AUROC | I-AUROC
+  0.974   |   0.923   |   0.847  |   0.420  |   0.998 |   0.840
+Metrics for class rope with 250ep_4bs
+AUPRO@30% | AUPRO@10% | AUPRO@5% | AUPRO@1% | P-AUROC | I-AUROC
+  0.930   |   0.822   |   0.727  |   0.332  |   0.993 |   0.922
+Metrics for class tire with 250ep_4bs
+AUPRO@30% | AUPRO@10% | AUPRO@5% | AUPRO@1% | P-AUROC | I-AUROC
+  0.929   |   0.792   |   0.655  |   0.286  |   0.993 |   0.783

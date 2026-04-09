@@ -1,0 +1,11 @@
+datasets/
+checkpoints/
+wandb/
+results/
+*.zip
+*.pth
+*.pt
+*.png
+*.jpg
+__pycache__/
+.ipynb_checkpoints/
