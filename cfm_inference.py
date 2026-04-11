@@ -95,6 +95,7 @@ def infer_CFM(args):
     saved_heatmaps = 0
 
     test_loader = get_data_loader("test", class_name=args.class_name, img_size=224, dataset_path=args.dataset_path)
+    print(f"[DEBUG] test_loader len: {len(test_loader)}")
     feature_extractor = MultimodalFeatures()
 
     CFM_RGBtoFreq = DynamicPromptSIREN(in_features=448, out_features=1152).to(device)
@@ -110,6 +111,8 @@ def infer_CFM(args):
     predictions, gts = [], []
     image_labels, pixel_labels = [], []
     image_preds, pixel_preds = [], []
+    first_batch_debug_printed = False
+    first_patch_debug_printed = False
     
     cos_sim = torch.nn.CosineSimilarity(dim=-1)
 
@@ -117,10 +120,28 @@ def infer_CFM(args):
 
     print(f"Post-processing variant {args.postproc_variant}: {postprocess_config['description']}")
     for (rgb, freq_img), gt, label, rgb_path in tqdm(test_loader, desc=f'Evaluating {args.class_name}', leave=False):
+        if not first_batch_debug_printed:
+            sample_path = rgb_path[0] if isinstance(rgb_path, (list, tuple)) and len(rgb_path) > 0 else rgb_path
+            label_value = label.view(-1).detach().cpu().tolist() if torch.is_tensor(label) else label
+            print("[DEBUG] first batch:")
+            print(f"  rgb: {tuple(rgb.shape)}")
+            print(f"  gt: {tuple(gt.shape)}")
+            print(f"  label: shape={tuple(label.shape)} value={label_value}")
+            print(f"  path: {sample_path}")
+            first_batch_debug_printed = True
+
         rgb, freq_img, gt = rgb.to(device), freq_img.to(device), gt.to(device)
 
         with torch.no_grad():
             rgb_patch, freq_patch = feature_extractor.get_features_maps(rgb, freq_img)
+            if not first_patch_debug_printed:
+                debug_seq_len = rgb_patch.shape[0] if rgb_patch.dim() == 2 else rgb_patch.shape[1]
+                debug_spatial_dim = int(math.sqrt(debug_seq_len))
+                print(f"[DEBUG] rgb_patch: {tuple(rgb_patch.shape)}")
+                print(f"[DEBUG] freq_patch: {tuple(freq_patch.shape)}")
+                print(f"[DEBUG] seq_len: {debug_seq_len}")
+                print(f"[DEBUG] spatial_dim: {debug_spatial_dim}")
+                first_patch_debug_printed = True
             freq_patch_batched = freq_patch.unsqueeze(0)
             
             pred_freq = CFM_RGBtoFreq(rgb_patch)
@@ -158,7 +179,8 @@ def infer_CFM(args):
                 saved_heatmaps += 1
             
             # 馃専 鏍稿績璇勪环瑙ｈ€﹂€昏緫
-            # 寰 P-AUROC 缁濆淇′换鐗╃悊绌洪棿鍥?            pixel_preds.extend(cos_spatial.flatten()) 
+            # 微观 P-AUROC 绝对信任物理空间图
+            pixel_preds.extend(cos_spatial.flatten())
             
             # 瀹忚 I-AUROC 鎻愬彇锛氱┖闂存渶涓ラ噸鐨勫湴鏂?+ 棰戝煙鐨勫叏灞€寮傚父娉㈠姩
             # 浣跨敤鍔犳潈鑰岄潪 crude 鐨?maximum
@@ -169,6 +191,21 @@ def infer_CFM(args):
             # 绉戝铻嶅悎鐗瑰緛锛氱┖闂村墽鐑堝紓鍔紝鎴栭鍩熷叏灞€澶辫皟锛岄兘浼氭媺楂樺浘鐗囧紓甯稿垎
             image_score = (spatial_anomaly_score * 0.6) + (freq_anomaly_score * 0.4)
             image_preds.append(image_score)
+
+    debug_lengths = {
+        "pixel_labels": len(pixel_labels),
+        "pixel_preds": len(pixel_preds),
+        "image_labels": len(image_labels),
+        "image_preds": len(image_preds),
+        "gts": len(gts),
+        "predictions": len(predictions),
+    }
+    print("[DEBUG] before metrics:")
+    for name, length in debug_lengths.items():
+        print(f"  {name}: {length}")
+    empty_items = [name for name, length in debug_lengths.items() if length == 0]
+    if empty_items:
+        print(f"[WARNING] 警告：评估前发现空列表，后续 np.stack 可能报错。空项: {', '.join(empty_items)}")
 
     au_pros, _ = calculate_au_pro(gts, predictions)
     pixel_rocauc = roc_auc_score(np.stack(pixel_labels), np.stack(pixel_preds))
