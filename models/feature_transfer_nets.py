@@ -14,7 +14,7 @@ class SineActivation(nn.Module):
 
 
 class DynamicPromptSIREN(nn.Module):
-    """频域报警流：RGB -> Freq"""
+    """上帝视角：频域报警流 (处理 RGB -> Freq)，已注入全局视野"""
     def __init__(self, in_features=None, out_features=None):
         super().__init__()
         self.norm = nn.LayerNorm(in_features)
@@ -45,10 +45,10 @@ class DynamicPromptSIREN(nn.Module):
             )
 
     def forward(self, x):
-        x_norm = self.norm(x)  # [B, L, C]
+        x_norm = self.norm(x)
 
-        x_global = x_norm.mean(dim=1, keepdim=True)  # [B, 1, C]
-        x_concat = torch.cat([x_norm, x_global.expand_as(x_norm)], dim=-1)  # [B, L, 2C]
+        x_global = x_norm.mean(dim=1, keepdim=True)
+        x_concat = torch.cat([x_norm, x_global.expand_as(x_norm)], dim=-1)
 
         prompt_weights = self.prompt_generator(x_concat)
         x_prompted = x_norm + (x_norm * prompt_weights)
@@ -62,11 +62,11 @@ class DynamicPromptSIREN(nn.Module):
 
 
 class MultiScale_SpatialDecoder(nn.Module):
-    """手术刀视角：Freq -> RGB，改为更局部的恢复，减少大感受野平滑"""
+    """手术刀视角：负责从频域特征还原回 2D 物理空间 (Freq -> RGB)"""
     def __init__(self, in_features=1152, out_features=448):
         super().__init__()
         self.spatial_restore = nn.Sequential(
-            nn.Conv2d(in_features, 512, kernel_size=3, padding=1, dilation=1),
+            nn.Conv2d(in_features, 512, kernel_size=3, padding=2, dilation=2),
             nn.BatchNorm2d(512),
             nn.GELU(),
             nn.Conv2d(512, out_features, kernel_size=3, padding=1),

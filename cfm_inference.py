@@ -94,8 +94,9 @@ def infer_CFM(args):
     postprocess_config = get_postprocess_config(args.postproc_variant)
     saved_heatmaps = 0
 
-    test_loader = get_data_loader("test", class_name=args.class_name, img_size=224, dataset_path=args.dataset_path)
-    print(f"[DEBUG] test_loader len: {len(test_loader)}")
+    test_loader = get_data_loader(args.eval_split, class_name=args.class_name, img_size=224, dataset_path=args.dataset_path)
+    print(f"[INFO] Evaluating split: {args.eval_split}")
+    print(f"[DEBUG] {args.eval_split}_loader len: {len(test_loader)}")
     feature_extractor = MultimodalFeatures()
 
     CFM_RGBtoFreq = DynamicPromptSIREN(in_features=448, out_features=1152).to(device)
@@ -119,7 +120,14 @@ def infer_CFM(args):
     print(f"\n馃敟 鍚姩 V2.1 缁堟瀬瑙ｈ€︽帹鐞?| 褰撳墠绾圭悊绫诲埆: {args.class_name}")
 
     print(f"Post-processing variant {args.postproc_variant}: {postprocess_config['description']}")
-    for (rgb, freq_img), gt, label, rgb_path in tqdm(test_loader, desc=f'Evaluating {args.class_name}', leave=False):
+    for batch_idx, batch in enumerate(tqdm(test_loader, desc=f'Evaluating {args.class_name} ({args.eval_split})', leave=False)):
+        if len(batch) == 2:
+            (rgb, freq_img), label = batch
+            gt = torch.zeros((rgb.shape[0], 1, 224, 224), dtype=rgb.dtype)
+            rgb_path = [f"{args.eval_split}_sample_{batch_idx:05d}"] * rgb.shape[0]
+        else:
+            (rgb, freq_img), gt, label, rgb_path = batch
+
         if not first_batch_debug_printed:
             sample_path = rgb_path[0] if isinstance(rgb_path, (list, tuple)) and len(rgb_path) > 0 else rgb_path
             label_value = label.view(-1).detach().cpu().tolist() if torch.is_tensor(label) else label
@@ -207,12 +215,32 @@ def infer_CFM(args):
     if empty_items:
         print(f"[WARNING] 警告：评估前发现空列表，后续 np.stack 可能报错。空项: {', '.join(empty_items)}")
 
-    au_pros, _ = calculate_au_pro(gts, predictions)
-    pixel_rocauc = roc_auc_score(np.stack(pixel_labels), np.stack(pixel_preds))
-    image_rocauc = roc_auc_score(np.stack(image_labels), np.stack(image_preds))
+    image_labels_np = np.stack(image_labels)
+    image_preds_np = np.stack(image_preds)
+    pixel_labels_np = np.stack(pixel_labels)
+    pixel_preds_np = np.stack(pixel_preds)
 
-    img_f1 = calculate_f1_max(np.stack(image_labels), np.stack(image_preds))
-    pix_f1 = calculate_f1_max(np.stack(pixel_labels), np.stack(pixel_preds))
+    has_image_anomalies = np.unique(image_labels_np).size > 1
+    has_pixel_anomalies = np.unique(pixel_labels_np).size > 1
+
+    if has_pixel_anomalies:
+        au_pros, _ = calculate_au_pro(gts, predictions)
+        pixel_rocauc = roc_auc_score(pixel_labels_np, pixel_preds_np)
+        pix_f1 = calculate_f1_max(pixel_labels_np, pixel_preds_np)
+    else:
+        au_pros = [float('nan')]
+        pixel_rocauc = float('nan')
+        pix_f1 = float('nan')
+
+    if has_image_anomalies:
+        image_rocauc = roc_auc_score(image_labels_np, image_preds_np)
+        img_f1 = calculate_f1_max(image_labels_np, image_preds_np)
+    else:
+        image_rocauc = float('nan')
+        img_f1 = float('nan')
+
+    if not has_image_anomalies or not has_pixel_anomalies:
+        print(f"[INFO] Split '{args.eval_split}' contains only normal samples; anomaly metrics requiring positives are reported as nan.")
 
     print(f"\n鉁?V2.1 {args.class_name} 娴嬬畻瀹屾垚锛乗nI-AUROC | I-F1 | P-AUROC | P-F1 | AUPRO@30%\n  {image_rocauc:.3f}  | {img_f1:.3f} |  {pixel_rocauc:.3f}  | {pix_f1:.3f} |   {au_pros[0]:.3f}\n")
 
@@ -220,6 +248,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset_path', default='./datasets/mvtec2d', type=str)
     parser.add_argument('--class_name', default="carpet", type=str)
+    parser.add_argument('--eval_split', default='test', choices=['validation', 'test'], type=str)
     parser.add_argument('--checkpoint_folder', default='./checkpoints/checkpoints_CFM_mvtec', type=str)
     parser.add_argument('--epochs_no', default=50, type=int)
     parser.add_argument('--batch_size', default=4, type=int)
